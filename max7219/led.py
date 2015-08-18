@@ -2,20 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import time
-from max7219.font import DEFAULT_FONT
+from max7219.font import DEFAULT_FONT as deffont
 from max7219.rotate8x8 import rotate
 
 class constants(object):
 
   noop=0x0
-  digit0=0x1
-  digit1=0x2
-  digit2=0x3
-  digit3=0x4
-  digit4=0x5
-  digit5=0x6
-  digit6=0x7
-  digit7=0x8
+  for i in range(8): eval("digit%i=0x%i"%(i,i+1))
   decodemode=0x9
   intensity=0xA
   scanlimit=0xB
@@ -42,7 +35,7 @@ class device(object):
     """
 
     import spidev
-    assert cascaded > 0, "Must have at least one device!"
+    assert cascaded>0, "Must have at least one device!"
 
     self._cascaded=cascaded
     self._buffer=[0]*self.NUM_digitS*self._cascaded
@@ -80,8 +73,8 @@ class device(object):
     """
 
     for deviceId in range(self._cascaded):
-      yield position + constants.digit0
-      yield buf[(deviceId*self.NUM_digitS) + position]
+      yield position+constants.digit0
+      yield buf[(deviceId*self.NUM_digitS)+position]
 
   def clear(self, deviceId=None):
     """
@@ -96,12 +89,12 @@ class device(object):
       end=self._cascaded
     else:
       start=deviceId
-      end=deviceId + 1
+      end=deviceId+1
 
     for deviceId in range(start, end):
       for position in range(self.NUM_digitS):
         self.set_byte(deviceId,
-          position + constants.digit0,
+          position+constants.digit0,
           0, redraw=False)
 
     self.flush()
@@ -123,7 +116,7 @@ class device(object):
     # Allow subclasses to pre-process the buffer: they shouldn't
     # alter it, so make a copy first.
     buf=self._preprocess_buffer(list(self._buffer))
-    assert len(buf) == len(self._buffer), "Preprocessed buffer is wrong size"
+    assert len(buf)==len(self._buffer), "Preprocessed buffer is wrong size"
     for posn in range(self.NUM_digitS):
       self._write(self._values(posn, buf))
 
@@ -153,7 +146,7 @@ class device(object):
     assert constants.digit0<=position<=constants.digit7, "Invalid digit/column: {0}".format(position)
     assert 0<=value<256, 'Value {0} outside range 0..255'.format(value)
 
-    offset=(deviceId*self.NUM_digitS) + position - constants.digit0
+    offset=(deviceId*self.NUM_digitS)+position - constants.digit0
     self._buffer[offset]=value
 
     if redraw: self.flush()
@@ -225,8 +218,7 @@ class sevensegment(device):
     value=self._digitS[str(char)] | (dot << 7)
     self.set_byte(deviceId, position, value, redraw)
 
-  def write_number(self, deviceId, value, base=10, decimalPlaces=0,
-           zeroPad=False, leftJustify=False):
+  def write_number(self, deviceId, value, base=10, decimalPlaces=0, zeroPad=False, leftJustify=False):
     """
     Formats the value according to the parameters supplied, and displays
     on the specified device. If the formatted number is larger than
@@ -241,15 +233,13 @@ class sevensegment(device):
     formatStr='%'
 
     if zeroPad: formatStr+='0'
-    if decimalPlaces > 0: size+=1
+    if decimalPlaces>0: size+=1
     if leftJustify: size *= -1
 
-    formatStr='{fmt}{size}.{dp}{type}'.format(
-            fmt=formatStr, size=size, dp=decimalPlaces,
-            type=self._radix[base])
+    formatStr='{fmt}{size}.{dp}{type}'.format(fmt=formatStr, size=size, dp=decimalPlaces, type=self._radix[base])
 
     position=constants.digit7
-    strValue=formatStr % value
+    strValue=formatStr%value
 
     # Go through each digit in the formatted string,
     # updating the buffer accordingly
@@ -259,11 +249,11 @@ class sevensegment(device):
         self.clear(deviceId)
         raise OverflowError('{0} too large for display'.format(strValue))
 
-      if char == '.': continue
+      if char=='.': continue
 
-      dp=(decimalPlaces > 0 and position == decimalPlaces + 1)
+      dp=(decimalPlaces>0 and position==decimalPlaces+1)
       self.letter(deviceId, position, char, dot=dp, redraw=False)
-      position -= 1
+      position-=1
 
     self.flush()
 
@@ -285,12 +275,11 @@ class matrix(device):
     """
 
     assert 0<=asciiCode<256
-
-    if not font: font=DEFAULT_FONT
+    if not font: font=deffont
 
     col=constants.digit0
     for value in font[asciiCode]:
-      if col > constants.digit7:
+      if col>constants.digit7:
         self.clear(deviceId)
         raise OverflowError('Font for \'{0}\' too large for display'.format(asciiCode))
 
@@ -323,7 +312,7 @@ class matrix(device):
     # Add some spaces on (same number as cascaded devices) so that the
     # message scrolls off to the left completely.
 
-    if not font: font=DEFAULT_FONT
+    if not font: font=deffont
     text+=' '*self._cascaded
     src=(value for asciiCode in text for value in font[ord(asciiCode)])
 
@@ -354,7 +343,7 @@ class matrix(device):
     """
     result=[]
     for i in range(0, self._cascaded*self.NUM_digitS, self.NUM_digitS):
-      tile=buf[i:i + self.NUM_digitS]
+      tile=buf[i:i+self.NUM_digitS]
       for _ in range(self._orientation // 90):
         tile=rotate(tile)
 
@@ -388,7 +377,7 @@ class matrix(device):
     Sets the orientation (angle should be 0, 90, 180 or 270) at which
     the characters are displayed.
     """
-    
+
     assert angle in [0, 90, 180, 270]
 
     self._orientation=angle
